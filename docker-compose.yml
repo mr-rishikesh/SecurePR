@@ -1,0 +1,52 @@
+version: '3.9'
+
+services:
+  redis:
+    image: redis:alpine
+    container_name: devinsight-redis
+    restart: unless-stopped
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: devinsight-api
+    restart: unless-stopped
+    ports:
+      - '3000:3000'
+    environment:
+      - NODE_ENV=production
+      - WEBHOOK_SECRET=${WEBHOOK_SECRET}
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - UPSTASH_REDIS_URL=redis://redis:6379
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: .
+      dockerfile: worker.Dockerfile
+    container_name: devinsight-worker
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - UPSTASH_REDIS_URL=redis://redis:6379
+    depends_on:
+      redis:
+        condition: service_healthy
+
+volumes:
+  redis_data:

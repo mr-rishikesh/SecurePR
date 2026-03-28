@@ -1,65 +1,66 @@
-import Image from "next/image";
+import Link from 'next/link';
 
 export default function Home() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className="min-h-screen bg-gray-950 text-gray-100 flex flex-col items-center justify-center px-6">
+      <main className="max-w-2xl w-full text-center">
+        <div className="mb-6 inline-flex items-center gap-2 bg-indigo-900/40 border border-indigo-700/50 rounded-full px-4 py-1.5 text-sm text-indigo-300">
+          <span className="w-2 h-2 rounded-full bg-indigo-400 animate-pulse" />
+          AI-Powered Security Auditing
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
+
+        <h1 className="text-6xl font-extrabold tracking-tight text-white mb-4">
+          Dev<span className="text-indigo-400">Insight</span>
+        </h1>
+
+        <p className="text-xl text-gray-400 mb-10 leading-relaxed">
+          Automatically audit every Pull Request for security vulnerabilities —
+          SQL injection, hardcoded secrets, and insecure dependencies — powered
+          by Gemini 1.5 Flash.
+        </p>
+
+        <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          <Link
+            href="/dashboard"
+            className="inline-flex items-center justify-center gap-2 rounded-full bg-indigo-600 hover:bg-indigo-500 transition-colors px-8 py-3.5 text-base font-semibold text-white shadow-lg"
+          >
+            View Dashboard
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" />
+            </svg>
+          </Link>
           <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
+            href="https://github.com"
             target="_blank"
             rel="noopener noreferrer"
+            className="inline-flex items-center justify-center rounded-full border border-gray-700 hover:border-gray-500 hover:bg-gray-800 transition-colors px-8 py-3.5 text-base font-semibold text-gray-300"
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
+            GitHub Docs
           </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+        </div>
+
+        <div className="mt-20 grid grid-cols-1 sm:grid-cols-3 gap-6 text-left">
+          <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
+            <div className="text-2xl mb-2">🔍</div>
+            <h3 className="font-semibold text-gray-100 mb-1">Instant Audits</h3>
+            <p className="text-sm text-gray-500">Every PR triggers a security review within seconds via GitHub webhooks.</p>
+          </div>
+          <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
+            <div className="text-2xl mb-2">🛡️</div>
+            <h3 className="font-semibold text-gray-100 mb-1">Three Threat Classes</h3>
+            <p className="text-sm text-gray-500">Detects SQL injection, hardcoded secrets, and vulnerable dependencies.</p>
+          </div>
+          <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
+            <div className="text-2xl mb-2">📊</div>
+            <h3 className="font-semibold text-gray-100 mb-1">Analytics Dashboard</h3>
+            <p className="text-sm text-gray-500">Track audit volume, bugs found, and response time trends over time.</p>
+          </div>
         </div>
       </main>
+
+      <footer className="mt-20 text-sm text-gray-600">
+        DevInsight — AI-Powered PR Auditor
+      </footer>
     </div>
   );
 }

@@ -9,10 +9,12 @@
 !.yarn/plugins
 !.yarn/releases
 !.yarn/versions
-
+/plan
+/plan/
 # testing
 /coverage
-
+/.claude
+.claude
 # next.js
 /.next/
 /out/
