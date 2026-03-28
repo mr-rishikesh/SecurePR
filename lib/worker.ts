@@ -3,19 +3,24 @@ import { Octokit } from '@octokit/rest';
 import { auditDiff } from './gemini';
 import { redisConnection } from './queue';
 
-interface PRJobData {
+export interface PRJobData {
   prNumber: number;
   owner: string;
   repo: string;
   headSha: string;
+  deliveryId: string;
   enqueuedAt: number;
+}
+
+function log(level: 'info' | 'warn' | 'error', msg: string, meta?: Record<string, unknown>) {
+  const entry = { ts: new Date().toISOString(), level, msg, ...meta };
+  if (level === 'error') console.error(JSON.stringify(entry));
+  else console.log(JSON.stringify(entry));
 }
 
 function createOctokit(): Octokit {
   const token = process.env.GITHUB_TOKEN;
-  if (!token) {
-    throw new Error('GITHUB_TOKEN environment variable is not set');
-  }
+  if (!token) throw new Error('GITHUB_TOKEN environment variable is not set');
   return new Octokit({ auth: token });
 }
 
@@ -45,57 +50,72 @@ async function postPRComment(
     owner,
     repo,
     issue_number: prNumber,
-    body: `## DevInsight Security Audit\n\n${body}\n\n---\n*Powered by DevInsight AI PR Auditor*`,
+    body: [
+      '## DevInsight Security Audit',
+      '',
+      body,
+      '',
+      '---',
+      '*Powered by [DevInsight](https://github.com) · Gemini 1.5 Flash*',
+    ].join('\n'),
   });
 }
 
 async function processJob(job: Job<PRJobData>): Promise<void> {
-  const { prNumber, owner, repo, enqueuedAt } = job.data;
+  const { prNumber, owner, repo, headSha, enqueuedAt } = job.data;
+  const label = `${owner}/${repo}#${prNumber}`;
 
-  console.log(`[Worker] Processing PR #${prNumber} for ${owner}/${repo}`);
+  log('info', 'Processing job', { jobId: job.id, pr: label, sha: headSha, attempt: job.attemptsMade + 1 });
+
+  await job.updateProgress(10);
 
   const octokit = createOctokit();
-
   const diff = await fetchPRDiff(octokit, owner, repo, prNumber);
+
   if (!diff || diff.trim().length === 0) {
-    console.log(`[Worker] Empty diff for PR #${prNumber}, skipping`);
+    log('warn', 'Empty diff — skipping', { pr: label });
     return;
   }
 
-  const MAX_DIFF_CHARS = 50000;
-  const truncatedDiff = diff.length > MAX_DIFF_CHARS
-    ? diff.slice(0, MAX_DIFF_CHARS) + '\n... (diff truncated due to size)'
-    : diff;
+  await job.updateProgress(40);
+  log('info', 'Diff fetched, sending to Gemini', { pr: label, diffChars: diff.length });
 
-  const auditResult = await auditDiff(truncatedDiff);
+  const auditResult = await auditDiff(diff);
 
-  const responseTimeMs = Date.now() - enqueuedAt;
-  const responseTimeSecs = (responseTimeMs / 1000).toFixed(1);
+  await job.updateProgress(80);
 
-  const comment = `${auditResult}\n\n*Analysis completed in ${responseTimeSecs}s*`;
+  const responseTimeSecs = ((Date.now() - enqueuedAt) / 1000).toFixed(1);
+  const comment = `${auditResult}\n\n*Analysis completed in ${responseTimeSecs}s · commit \`${headSha.slice(0, 7)}\`*`;
+
   await postPRComment(octokit, owner, repo, prNumber, comment);
+  await job.updateProgress(100);
 
-  console.log(`[Worker] Posted audit comment for PR #${prNumber} (${responseTimeSecs}s)`);
+  log('info', 'Audit comment posted', { pr: label, responseTimeSecs });
 }
 
 export function startWorker(): Worker<PRJobData> {
   const worker = new Worker<PRJobData>('pr-review', processJob, {
     connection: redisConnection,
     concurrency: 3,
+    limiter: { max: 10, duration: 60_000 }, // max 10 jobs/min to respect API rate limits
   });
 
   worker.on('completed', (job) => {
-    console.log(`[Worker] Job ${job.id} completed`);
+    log('info', 'Job completed', { jobId: job.id });
   });
 
   worker.on('failed', (job, err) => {
-    console.error(`[Worker] Job ${job?.id} failed:`, err.message);
+    log('error', 'Job failed', { jobId: job?.id, error: err.message, attempt: job?.attemptsMade });
   });
 
   worker.on('error', (err) => {
-    console.error('[Worker] Worker error:', err);
+    log('error', 'Worker error', { error: err.message });
   });
 
-  console.log('[Worker] PR review worker started and listening for jobs...');
+  worker.on('stalled', (jobId) => {
+    log('warn', 'Job stalled', { jobId });
+  });
+
+  log('info', 'PR review worker started', { concurrency: 3, queue: 'pr-review' });
   return worker;
 }

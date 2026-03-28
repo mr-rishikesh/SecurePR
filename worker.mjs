@@ -1,26 +1,32 @@
 /**
  * Standalone worker entry point for Docker.
- * Starts the BullMQ worker that processes PR review jobs.
- *
- * Usage: node worker.mjs
- * (Requires ts-node or compiled JS — for Docker, compile first via `next build` or use tsx)
+ * Usage: node --import tsx/esm worker.mjs
  */
 
 import { register } from 'node:module';
 import { pathToFileURL } from 'node:url';
 
-// Use tsx to handle TypeScript imports at runtime
 register('tsx/esm', pathToFileURL('./'));
 
 const { startWorker } = await import('./lib/worker.ts');
 
+process.on('unhandledRejection', (reason) => {
+  console.error(JSON.stringify({ ts: new Date().toISOString(), level: 'error', msg: 'Unhandled rejection', reason: String(reason) }));
+  process.exit(1);
+});
+
+process.on('uncaughtException', (err) => {
+  console.error(JSON.stringify({ ts: new Date().toISOString(), level: 'error', msg: 'Uncaught exception', error: err.message }));
+  process.exit(1);
+});
+
 const worker = startWorker();
 
-async function shutdown() {
-  console.log('[Worker] Shutting down gracefully...');
+async function shutdown(signal) {
+  console.log(JSON.stringify({ ts: new Date().toISOString(), level: 'info', msg: `Shutting down on ${signal}` }));
   await worker.close();
   process.exit(0);
 }
 
-process.on('SIGTERM', shutdown);
-process.on('SIGINT', shutdown);
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT',  () => shutdown('SIGINT'));
