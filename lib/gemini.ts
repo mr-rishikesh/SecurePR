@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI, GenerativeModel } from '@google/generative-ai';
+import Groq from 'groq-sdk';
 
 const SYSTEM_PROMPT = `You are a strict security auditor reviewing a GitHub Pull Request diff.
 Your job is to identify security vulnerabilities in the changed code only — do not flag code outside the diff.
@@ -26,25 +26,24 @@ If no issues are found, respond with a single line:
 
 Be concise, factual, and actionable.`;
 
+// Model: llama-3.3-70b-versatile is Groq's fastest high-quality model.
+// Alternatives: mixtral-8x7b-32768, llama3-70b-8192, gemma2-9b-it
+const GROQ_MODEL = 'llama-3.3-70b-versatile';
+
 const MAX_DIFF_CHARS = 50_000;
 const MAX_RETRIES = 2;
 const RETRY_DELAY_MS = 2000;
 
 // Module-level singleton — created once per process lifetime
-let _model: GenerativeModel | null = null;
+let _client: Groq | null = null;
 
-function getModel(): GenerativeModel {
-  if (!_model) {
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) throw new Error('GEMINI_API_KEY environment variable is not set');
-    const genAI = new GoogleGenerativeAI(apiKey);
-    _model = genAI.getGenerativeModel({
-      model: 'gemini-1.5-flash',
-      systemInstruction: SYSTEM_PROMPT,
-      generationConfig: { temperature: 0.2, maxOutputTokens: 2048 },
-    });
+function getClient(): Groq {
+  if (!_client) {
+    const apiKey = process.env.GROQ_API_KEY;
+    if (!apiKey) throw new Error('GROQ_API_KEY environment variable is not set');
+    _client = new Groq({ apiKey });
   }
-  return _model;
+  return _client;
 }
 
 function sleep(ms: number) {
@@ -57,14 +56,24 @@ export async function auditDiff(diff: string): Promise<string> {
       ? diff.slice(0, MAX_DIFF_CHARS) + '\n\n*(diff truncated at 50k chars)*'
       : diff;
 
-  const prompt = `Audit the following PR diff for security vulnerabilities:\n\n\`\`\`diff\n${truncated}\n\`\`\``;
-  const model = getModel();
-
+  const client = getClient();
   let lastError: Error | null = null;
+
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     try {
-      const result = await model.generateContent(prompt);
-      return result.response.text();
+      const completion = await client.chat.completions.create({
+        model: GROQ_MODEL,
+        temperature: 0.2,
+        max_tokens: 2048,
+        messages: [
+          { role: 'system', content: SYSTEM_PROMPT },
+          {
+            role: 'user',
+            content: `Audit the following PR diff for security vulnerabilities:\n\n\`\`\`diff\n${truncated}\n\`\`\``,
+          },
+        ],
+      });
+      return completion.choices[0]?.message?.content ?? '> ✅ No response from model.';
     } catch (err) {
       lastError = err instanceof Error ? err : new Error(String(err));
       if (attempt < MAX_RETRIES) await sleep(RETRY_DELAY_MS * (attempt + 1));
