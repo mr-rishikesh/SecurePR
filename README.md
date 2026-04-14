@@ -1,36 +1,109 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# DevInsight — AI-Powered PR Security Auditor
 
-## Getting Started
+DevInsight hooks into GitHub via webhooks, audits each pull request diff with an LLM, and posts severity-rated security findings directly on the PR thread — automatically.
 
-First, run the development server:
+## How it works
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+1. **Webhook fires** — GitHub sends a `pull_request` event to `/api/webhook`. The HMAC-SHA256 signature is verified and a job is enqueued in under 50ms, so GitHub never times out.
+2. **Queue** — Jobs land in a BullMQ queue backed by Redis with 3 auto-retries and exponential backoff.
+3. **Worker audits the diff** — A background worker fetches only the changed lines via the GitHub API and sends them to Groq (llama-3.3-70b-versatile) for analysis.
+4. **Comment posted** — Findings are posted directly on the PR thread, severity-rated with actionable remediation steps.
+
+### Threat classes detected
+
+| Class | Examples |
+|---|---|
+| SQL Injection | Unparameterized queries, string interpolation in SQL |
+| Hardcoded Secrets | API keys, passwords, tokens in source code |
+| Insecure Dependencies | Known-vulnerable packages, outdated CVEs |
+| XSS | Unsanitized user input rendered in HTML/JS |
+| Path Traversal | User-controlled file paths without sanitization |
+| Broken Authentication | Missing auth checks, weak token validation |
+| Sensitive Data Exposure | Logging PII or stack traces to clients |
+
+## Project structure
+
+```
+app/
+  api/webhook/route.ts   # GitHub webhook handler
+  dashboard/page.tsx     # Analytics dashboard
+  page.tsx               # Landing page
+lib/
+  gemini.ts              # Groq API client + audit logic
+  queue.ts               # BullMQ queue + Redis connection
+  worker.ts              # Background job processor
+worker.mjs               # Standalone worker entry point (Docker)
+Dockerfile               # Next.js API image
+worker.Dockerfile        # Worker image
+docker-compose.yml       # Redis + API + Worker services
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Local development
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Prerequisites
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- Node.js 20+
+- Redis (or use Docker Compose)
 
-## Learn More
+### Setup
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+npm install
+cp .env.example .env
+# Fill in your credentials in .env
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Environment variables
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+| Variable | Description |
+|---|---|
+| `WEBHOOK_SECRET` | Secret configured in GitHub repo's webhook settings |
+| `GITHUB_TOKEN` | Personal access token with `repo:read` and `issues:write` |
+| `GROQ_API_KEY` | API key from [console.groq.com/keys](https://console.groq.com/keys) |
+| `UPSTASH_REDIS_URL` | Redis URL — use `redis://localhost:6379` for local dev |
 
-## Deploy on Vercel
+### Run
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```bash
+# Terminal 1 — Next.js dev server
+npm run dev
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+# Terminal 2 — Background worker
+node --import tsx/esm worker.mjs
+```
+
+Open [http://localhost:3000](http://localhost:3000) to see the landing page and [http://localhost:3000/dashboard](http://localhost:3000/dashboard) for the analytics dashboard.
+
+## Docker
+
+```bash
+# Start Redis + API + Worker
+docker compose up --build
+```
+
+The API is available at `http://localhost:3000`.
+
+## GitHub webhook setup
+
+1. Go to your repo → **Settings → Webhooks → Add webhook**
+2. Set **Payload URL** to `https://your-domain.com/api/webhook`
+3. Set **Content type** to `application/json`
+4. Generate a secret and set it as `WEBHOOK_SECRET` in your environment
+5. Select **Pull request** events (or "Send me everything")
+
+## CI/CD
+
+Pushing to `main` triggers a GitHub Actions workflow that builds and pushes Docker images for both the API and worker to Docker Hub. Set the following repository secrets:
+
+- `DOCKER_HUB_USERNAME`
+- `DOCKER_HUB_TOKEN`
+
+## Tech stack
+
+- [Next.js 16](https://nextjs.org) — API routes + frontend
+- [BullMQ](https://bullmq.io) — Job queue with retries and concurrency control
+- [Groq SDK](https://console.groq.com) — Fast LLM inference (llama-3.3-70b-versatile)
+- [Octokit](https://github.com/octokit/rest.js) — GitHub API client
+- [ioredis](https://github.com/redis/ioredis) — Redis client
+- [Recharts](https://recharts.org) — Dashboard charts
+- [Tailwind CSS v4](https://tailwindcss.com) — Styling
