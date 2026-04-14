@@ -1,4 +1,4 @@
-# DevInsight — AI-Powered PR Security Auditor
+# SecurePR — AI-Powered PR Security Auditor
 
 DevInsight hooks into GitHub via webhooks, audits each pull request diff with an LLM, and posts severity-rated security findings directly on the PR thread — automatically.
 
