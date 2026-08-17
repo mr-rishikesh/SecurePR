@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { notFound, useParams } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import {
   AreaChart,
@@ -14,6 +15,14 @@ import {
   ResponsiveContainer,
   Cell,
 } from 'recharts';
+
+const regionMap: Record<string, string> = {
+  us: 'United States',
+  uk: 'United Kingdom',
+  in: 'India',
+  ca: 'Canada',
+  au: 'Australia',
+};
 
 function StatusBadge({ status }: { status: string }) {
   if (status === 'critical')
@@ -69,16 +78,21 @@ interface DashboardData {
 }
 
 export default function DashboardPage() {
+  const params = useParams();
+  const region = Array.isArray(params.region) ? params.region[0] : (params.region as string);
+  const regionName = regionMap[region];
+
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!regionName) return;
     let active = true;
     async function fetchLiveMetrics() {
       try {
         setLoading(true);
-        const res = await fetch('/api/dashboard');
+        const res = await fetch(`/api/dashboard?region=${region}`);
         if (!res.ok) {
           throw new Error(`Failed to load: ${res.statusText}`);
         }
@@ -101,14 +115,18 @@ export default function DashboardPage() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [region, regionName]);
+
+  if (!regionName) {
+    notFound();
+  }
 
   if (loading) {
     return (
       <div className="min-h-screen bg-black text-[#ededed] flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
           <div className="w-8 h-8 rounded-full border-2 border-indigo-600 border-t-transparent animate-spin" />
-          <p className="text-xs text-[#555] tracking-widest uppercase font-mono">Loading security live metrics...</p>
+          <p className="text-xs text-[#555] tracking-widest uppercase font-mono">Loading security live metrics for {regionName}...</p>
         </div>
       </div>
     );
@@ -118,7 +136,7 @@ export default function DashboardPage() {
     return (
       <div className="min-h-screen bg-black text-[#ededed] flex items-center justify-center">
         <div className="text-center p-6 rounded-2xl border border-red-500/20 bg-[#0c0505] max-w-md shadow-2xl">
-          <h2 className="text-red-400 font-semibold mb-2">Failed to load live data</h2>
+          <h2 className="text-red-400 font-semibold mb-2">Failed to load live data ({regionName})</h2>
           <p className="text-xs text-[#666] mb-4 font-mono">{error || 'No data returned'}</p>
           <button
             onClick={() => window.location.reload()}
@@ -147,7 +165,7 @@ export default function DashboardPage() {
       {/* Top nav */}
       <header className="sticky top-0 z-20 flex items-center justify-between px-6 h-14 border-b border-white/6 bg-black/80 backdrop-blur-xl">
         <div className="flex items-center gap-3">
-          <Link href="/" className="flex items-center gap-2 group">
+          <Link href={`/${region}`} className="flex items-center gap-2 group">
             <div className="w-6 h-6 rounded-md bg-indigo-600 flex items-center justify-center">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
@@ -183,7 +201,7 @@ export default function DashboardPage() {
 
         {/* Page title */}
         <div className="mb-8">
-          <h1 className="text-2xl font-bold text-white tracking-tight">Security Overview</h1>
+          <h1 className="text-2xl font-bold text-white tracking-tight">Security Overview — {regionName}</h1>
           <p className="text-sm text-[#555] mt-0.5">Last 7 days · live data</p>
         </div>
 
@@ -421,7 +439,7 @@ export default function DashboardPage() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
             </svg>
           </div>
-          DevInsight
+          DevInsight — {regionName}
         </div>
         <span>Live data · connected to Redis</span>
       </footer>

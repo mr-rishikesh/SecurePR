@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
-import { prReviewQueue } from '@/lib/queue';
+import { prReviewQueue, redisConnection } from '@/lib/queue';
 
 // Prevent Next.js from buffering/limiting the raw body
 export const config = { api: { bodyParser: false } };
@@ -71,19 +71,33 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Missing PR or repo data' }, { status: 400 });
   }
 
-  // Use deliveryId as jobId — GitHub retries the same delivery ID, so this is idempotent
-  await prReviewQueue.add(
-    'review-pr',
-    {
-      prNumber: pr.number as number,
-      owner: (repo.owner as { login: string }).login,
-      repo: repo.name as string,
-      headSha: (pr.head as { sha: string }).sha,
-      deliveryId,
-      enqueuedAt: Date.now(),
-    },
-    { jobId: deliveryId }
-  );
+  const { searchParams } = req.nextUrl;
+  const region = searchParams.get('region') || 'us';
 
-  return NextResponse.json({ ok: true, jobId: deliveryId }, { status: 200 });
+  const jobPayload = {
+    prNumber: pr.number as number,
+    owner: (repo.owner as { login: string }).login,
+    repo: repo.name as string,
+    headSha: (pr.head as { sha: string }).sha,
+    deliveryId,
+    enqueuedAt: Date.now(),
+    region,
+  };
+
+  const isRedisOnline = redisConnection.status === 'ready';
+
+  if (isRedisOnline) {
+    // Use deliveryId as jobId — GitHub retries the same delivery ID, so this is idempotent
+    await prReviewQueue.add('review-pr', jobPayload, { jobId: deliveryId });
+  } else {
+    // Fallback: process job locally in-memory asynchronously since Redis is offline
+    console.log(`Redis is offline. Processing delivery ${deliveryId} locally...`);
+    import('@/lib/worker').then(({ processJobLocal }) => {
+      processJobLocal(jobPayload).catch((err) => {
+        console.error('Local worker processing error:', err.message);
+      });
+    });
+  }
+
+  return NextResponse.json({ ok: true, jobId: deliveryId, queued: isRedisOnline }, { status: 200 });
 }
