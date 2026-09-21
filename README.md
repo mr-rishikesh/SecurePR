@@ -1,6 +1,6 @@
-# DevInsight — AI-Powered PR Security Auditor
+# SecurePR — AI-Powered PR Security Auditor
 
-DevInsight hooks into GitHub via webhooks, audits each pull request diff with an LLM, and posts severity-rated security findings directly on the PR thread — automatically.
+SecurePR hooks into GitHub via webhooks, audits each pull request diff with an LLM, and posts severity-rated security findings directly on the PR thread — automatically.
 
 ## How it works
 
@@ -100,7 +100,7 @@ Pushing to `main` triggers a GitHub Actions workflow that builds and pushes Dock
 
 ## Tech stack
 
-- [Next.js 16](https://nextjs.org) — API routes + frontend
+- [Next.js 16](https://nextjs.org) — API routes + frontend + Backend
 - [BullMQ](https://bullmq.io) — Job queue with retries and concurrency control
 - [Groq SDK](https://console.groq.com) — Fast LLM inference (llama-3.3-70b-versatile)
 - [Octokit](https://github.com/octokit/rest.js) — GitHub API client

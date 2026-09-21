@@ -255,7 +255,7 @@ Create a test GitHub repository (or use an existing one you own):
    ```bash
    cat > test.js << 'EOF'
    // Example: hardcoded secret (DevInsight should flag this)
-   const API_KEY = "sk_live_1234567890abcdef";
+   const API_KEY = "dummy_secret_token_12345";
    
    // Example: SQL injection (DevInsight should flag this)
    const query = `SELECT * FROM users WHERE id = ${userId}`;

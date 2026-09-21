@@ -26,9 +26,8 @@ If no issues are found, respond with a single line:
 
 Be concise, factual, and actionable.`;
 
-// Model: llama-3.3-70b-versatile is Groq's fastest high-quality model.
-// Alternatives: mixtral-8x7b-32768, llama3-70b-8192, gemma2-9b-it
-const GROQ_MODEL = 'llama-3.3-70b-versatile';
+// Model: openai/gpt-oss-120b is Groq's active high-performance model.
+const GROQ_MODEL = 'openai/gpt-oss-120b';
 
 const MAX_DIFF_CHARS = 50_000;
 const MAX_RETRIES = 2;

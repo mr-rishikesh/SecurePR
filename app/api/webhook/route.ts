@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { prReviewQueue, redisConnection } from '@/lib/queue';
 
-// Prevent Next.js from buffering/limiting the raw body
-export const config = { api: { bodyParser: false } };
+// Force dynamic execution for API route
+export const dynamic = 'force-dynamic';
 
 function verifySignature(payload: string, signature: string, secret: string): boolean {
   const hmac = crypto.createHmac('sha256', secret);

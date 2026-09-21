@@ -1,12 +1,7 @@
-/**
- * Standalone worker entry point for Docker.
- * Usage: node --import tsx/esm worker.mjs
- */
+import nextEnv from '@next/env';
 
-import { register } from 'node:module';
-import { pathToFileURL } from 'node:url';
-
-register('tsx/esm', pathToFileURL('./'));
+const { loadEnvConfig } = nextEnv;
+loadEnvConfig(process.cwd());
 
 const { startWorker } = await import('./lib/worker.ts');
 
